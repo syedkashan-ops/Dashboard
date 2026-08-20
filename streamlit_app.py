@@ -6,11 +6,6 @@ import tempfile
 import uuid
 from pathlib import Path
 
-
-# ============================================================
-# CONFIGURATION
-# ============================================================
-
 BASE_DIR = Path(__file__).resolve().parent
 
 st.set_page_config(
@@ -18,11 +13,6 @@ st.set_page_config(
     page_icon="📊",
     layout="wide"
 )
-
-
-# ============================================================
-# INPUT FILES
-# ============================================================
 
 INPUT_FIELDS = [
     ("Lubricant_Product_Liters.xlsx", "Lubricant Product Liters"),
@@ -37,24 +27,14 @@ INPUT_FIELDS = [
     ("Outlet Objectives.xlsx", "Monthly Objectives"),
 ]
 
-
-# ============================================================
-# PAGE HEADER
-# ============================================================
-
 st.title("📊 Sales Dashboard Generator")
 
-st.write(
-    "Upload your daily SAP sales files and generate the updated "
-    "Excel dashboard."
+st.info(
+    "Upload daily SAP sales files, optionally replace any input workbook, "
+    "then generate and download Result.xlsx."
 )
 
-
-# ============================================================
-# DAILY INPUT FILES
-# ============================================================
-
-st.subheader("Step 1 — Daily SAP Input Files")
+st.subheader("Step 1 — Daily SAP Input")
 
 daily_files = st.file_uploader(
     "Upload one or more daily SAP sales files",
@@ -62,17 +42,7 @@ daily_files = st.file_uploader(
     accept_multiple_files=True
 )
 
-
-# ============================================================
-# OPTIONAL INPUT FILES
-# ============================================================
-
-st.subheader("Step 2 — Replace Input Files (Optional)")
-
-st.info(
-    "If you do not upload a file below, the default file available "
-    "in the Input folder will be used."
-)
+st.subheader("Step 2 — Optional Replacement Input Files")
 
 uploaded_references = {}
 
@@ -81,463 +51,153 @@ for filename, label in INPUT_FIELDS:
     uploaded_references[filename] = st.file_uploader(
         f"{label} (Optional)",
         type=["xlsx", "xlsm"],
-        key=f"upload_{filename}"
+        key=filename
     )
-
-
-# ============================================================
-# GENERATE BUTTON
-# ============================================================
 
 st.subheader("Step 3 — Generate Dashboard")
 
-generate_button = st.button(
-    "⚡ Generate Result.xlsx",
-    use_container_width=True
-)
-
-
-# ============================================================
-# DASHBOARD PROCESSING
-# ============================================================
-
-if generate_button:
+if st.button("⚡ Generate Result.xlsx", use_container_width=True):
 
     if not daily_files:
-
-        st.error(
-            "Please upload at least one Daily SAP Excel file."
-        )
-
+        st.error("Please upload at least one daily SAP Excel file.")
         st.stop()
 
+    with st.spinner("Generating dashboard... Please wait."):
 
-    # Status area
-    status = st.empty()
+        job_root = Path(tempfile.gettempdir()) / "sales_dashboard_jobs"
+        job_root.mkdir(parents=True, exist_ok=True)
 
-    # Progress bar
-    progress_bar = st.progress(0)
+        job_dir = job_root / uuid.uuid4().hex
+        job_dir.mkdir()
 
+        try:
 
-    job_dir = None
+            # Copy Python files
+            python_files = [
+                "config.py",
+                "processor.py",
+                "excel_writer.py",
+                "incremental_merger.py",
+                "dashboard.py"
+            ]
 
-
-    try:
-
-        # ----------------------------------------------------
-        # STEP 1 - CREATE TEMPORARY WORKSPACE
-        # ----------------------------------------------------
-
-        status.info(
-            "Step 1/6: Preparing temporary workspace..."
-        )
-
-        progress_bar.progress(5)
-
-        job_root = (
-            Path(tempfile.gettempdir())
-            / "sales_dashboard_jobs"
-        )
-
-        job_root.mkdir(
-            parents=True,
-            exist_ok=True
-        )
-
-        job_dir = (
-            job_root
-            / uuid.uuid4().hex
-        )
-
-        job_dir.mkdir(
-            parents=True,
-            exist_ok=True
-        )
-
-
-        # ----------------------------------------------------
-        # STEP 2 - COPY APPLICATION FILES
-        # ----------------------------------------------------
-
-        status.info(
-            "Step 2/6: Copying dashboard application files..."
-        )
-
-        progress_bar.progress(15)
-
-
-        python_files = [
-            "config.py",
-            "processor.py",
-            "excel_writer.py",
-            "incremental_merger.py",
-            "dashboard.py"
-        ]
-
-
-        for filename in python_files:
-
-            source_file = (
-                BASE_DIR / filename
-            )
-
-            destination_file = (
-                job_dir / filename
-            )
-
-            if not source_file.exists():
-
-                raise FileNotFoundError(
-                    f"Required file not found: {filename}"
+            for filename in python_files:
+                shutil.copy2(
+                    BASE_DIR / filename,
+                    job_dir / filename
                 )
 
-            shutil.copy2(
-                source_file,
-                destination_file
+            # Copy default Input folder
+            shutil.copytree(
+                BASE_DIR / "Input",
+                job_dir / "Input"
             )
 
-
-        # ----------------------------------------------------
-        # STEP 3 - COPY DEFAULT INPUT FOLDER
-        # ----------------------------------------------------
-
-        status.info(
-            "Step 3/6: Preparing default Excel input files..."
-        )
-
-        progress_bar.progress(25)
-
-
-        source_input_dir = (
-            BASE_DIR / "Input"
-        )
-
-        destination_input_dir = (
-            job_dir / "Input"
-        )
-
-
-        if not source_input_dir.exists():
-
-            raise FileNotFoundError(
-                "Input folder was not found in the GitHub repository."
+            # Create required folders
+            (job_dir / "Daily_Input").mkdir(
+                parents=True,
+                exist_ok=True
             )
 
-
-        shutil.copytree(
-            source_input_dir,
-            destination_input_dir
-        )
-
-
-        # ----------------------------------------------------
-        # CREATE REQUIRED FOLDERS
-        # ----------------------------------------------------
-
-        (job_dir / "Daily_Input").mkdir(
-            parents=True,
-            exist_ok=True
-        )
-
-
-        (job_dir / "Output").mkdir(
-            parents=True,
-            exist_ok=True
-        )
-
-
-        (job_dir / "Backup").mkdir(
-            parents=True,
-            exist_ok=True
-        )
-
-
-        # ----------------------------------------------------
-        # STEP 4 - SAVE UPLOADED DAILY FILES
-        # ----------------------------------------------------
-
-        status.info(
-            "Step 4/6: Saving uploaded SAP sales files..."
-        )
-
-        progress_bar.progress(40)
-
-
-        for uploaded_file in daily_files:
-
-            file_path = (
-                job_dir
-                / "Daily_Input"
-                / uploaded_file.name
+            (job_dir / "Output").mkdir(
+                parents=True,
+                exist_ok=True
             )
 
+            (job_dir / "Backup").mkdir(
+                parents=True,
+                exist_ok=True
+            )
 
-            with open(
-                file_path,
-                "wb"
-            ) as f:
-
-                f.write(
-                    uploaded_file.getbuffer()
-                )
-
-
-        # ----------------------------------------------------
-        # REPLACE OPTIONAL INPUT FILES
-        # ----------------------------------------------------
-
-        for expected_name, uploaded_file in (
-            uploaded_references.items()
-        ):
-
-            if uploaded_file is not None:
+            # Save daily SAP files
+            for uploaded_file in daily_files:
 
                 file_path = (
                     job_dir
-                    / "Input"
-                    / expected_name
+                    / "Daily_Input"
+                    / uploaded_file.name
                 )
 
+                with open(file_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
 
-                with open(
-                    file_path,
-                    "wb"
-                ) as f:
+            # Replace optional input files
+            for expected_name, uploaded_file in uploaded_references.items():
 
-                    f.write(
-                        uploaded_file.getbuffer()
+                if uploaded_file is not None:
+
+                    file_path = (
+                        job_dir
+                        / "Input"
+                        / expected_name
                     )
 
+                    with open(file_path, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
 
-        # ----------------------------------------------------
-        # STEP 5 - RUN DASHBOARD PROCESS
-        # ----------------------------------------------------
+            # Run dashboard.py
+            completed = subprocess.run(
+                [sys.executable, "dashboard.py"],
+                cwd=job_dir,
+                capture_output=True,
+                text=True,
+                timeout=900
+            )
 
-        status.warning(
-            "Step 5/6: Processing Excel files and generating "
-            "dashboard... This may take several minutes."
-        )
+            result_file = (
+                job_dir
+                / "Output"
+                / "Result.xlsx"
+            )
 
-        progress_bar.progress(60)
+            if (
+                completed.returncode != 0
+                or not result_file.exists()
+            ):
 
+                error_details = (
+                    completed.stdout
+                    + "\n"
+                    + completed.stderr
+                )
 
-        completed = subprocess.run(
+                st.error("Dashboard generation failed.")
 
-            [
-                sys.executable,
-                "dashboard.py"
-            ],
+                st.code(error_details[-8000:])
 
-            cwd=job_dir,
+                st.stop()
 
-            capture_output=True,
+            result_data = result_file.read_bytes()
 
-            text=True,
+            st.success(
+                "Dashboard generated successfully!"
+            )
 
-            timeout=900
+            st.download_button(
+                label="⬇️ Download Result.xlsx",
+                data=result_data,
+                file_name="Result.xlsx",
+                mime=(
+                    "application/"
+                    "vnd.openxmlformats-officedocument."
+                    "spreadsheetml.sheet"
+                ),
+                use_container_width=True
+            )
 
-        )
-
-
-        # ----------------------------------------------------
-        # STEP 6 - CHECK RESULT FILE
-        # ----------------------------------------------------
-
-        status.info(
-            "Step 6/6: Checking generated Result.xlsx..."
-        )
-
-        progress_bar.progress(90)
-
-
-        result_file = (
-            job_dir
-            / "Output"
-            / "Result.xlsx"
-        )
-
-
-        # ----------------------------------------------------
-        # CHECK FOR PYTHON ERROR
-        # ----------------------------------------------------
-
-        if completed.returncode != 0:
-
-            progress_bar.empty()
-
-            status.empty()
-
+        except subprocess.TimeoutExpired:
 
             st.error(
-                "❌ Dashboard generation failed."
+                "Dashboard generation timed out."
             )
 
-
-            st.subheader(
-                "Error Details"
-            )
-
-
-            error_output = (
-                "STANDARD OUTPUT:\n"
-                + completed.stdout
-                + "\n\n"
-                + "ERROR OUTPUT:\n"
-                + completed.stderr
-            )
-
-
-            st.code(
-                error_output[-12000:]
-            )
-
-
-            st.stop()
-
-
-        # ----------------------------------------------------
-        # CHECK IF RESULT FILE EXISTS
-        # ----------------------------------------------------
-
-        if not result_file.exists():
-
-            progress_bar.empty()
-
-            status.empty()
-
+        except Exception as e:
 
             st.error(
-                "❌ Processing completed, but Result.xlsx "
-                "was not created."
+                f"Dashboard generation failed: {e}"
             )
 
-
-            st.subheader(
-                "Application Output"
-            )
-
-
-            output_text = (
-                "STANDARD OUTPUT:\n"
-                + completed.stdout
-                + "\n\n"
-                + "ERROR OUTPUT:\n"
-                + completed.stderr
-            )
-
-
-            st.code(
-                output_text[-12000:]
-            )
-
-
-            st.stop()
-
-
-        # ----------------------------------------------------
-        # READ GENERATED EXCEL FILE
-        # ----------------------------------------------------
-
-        status.info(
-            "Reading generated Result.xlsx..."
-        )
-
-        progress_bar.progress(95)
-
-
-        result_data = (
-            result_file.read_bytes()
-        )
-
-
-        # ----------------------------------------------------
-        # SUCCESS
-        # ----------------------------------------------------
-
-        progress_bar.progress(100)
-
-
-        status.success(
-            "✅ Dashboard generated successfully!"
-        )
-
-
-        st.balloons()
-
-
-        # ----------------------------------------------------
-        # DOWNLOAD BUTTON
-        # ----------------------------------------------------
-
-        st.download_button(
-
-            label="⬇️ Download Result.xlsx",
-
-            data=result_data,
-
-            file_name="Result.xlsx",
-
-            mime=(
-                "application/"
-                "vnd.openxmlformats-officedocument."
-                "spreadsheetml.sheet"
-            ),
-
-            use_container_width=True
-
-        )
-
-
-    # ========================================================
-    # TIMEOUT ERROR
-    # ========================================================
-
-    except subprocess.TimeoutExpired:
-
-        progress_bar.empty()
-
-        status.empty()
-
-
-        st.error(
-            "⏰ Dashboard generation exceeded the 15-minute "
-            "limit and was stopped."
-        )
-
-
-        st.warning(
-            "The processing is taking too long for the Streamlit "
-            "Cloud server. The next step will be to optimize the "
-            "Excel processing code."
-        )
-
-
-    # ========================================================
-    # OTHER ERRORS
-    # ========================================================
-
-    except Exception as e:
-
-        progress_bar.empty()
-
-        status.empty()
-
-
-        st.error(
-            f"❌ Error occurred: {str(e)}"
-        )
-
-
-        st.exception(e)
-
-
-    # ========================================================
-    # CLEAN TEMPORARY FILES
-    # ========================================================
-
-    finally:
-
-        if job_dir is not None:
+        finally:
 
             shutil.rmtree(
                 job_dir,
