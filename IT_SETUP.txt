@@ -1,0 +1,61 @@
+DASHBOARD - IT / SERVER SETUP
+=============================
+
+PURPOSE
+-------
+This project is a Python-based Excel dashboard generator.
+Python and the required package(s) should be installed on the machine/server that will run the project.
+
+1) INSTALL PYTHON
+-----------------
+Official Python download page:
+https://www.python.org/downloads/
+
+Recommended: install a current supported Python 3 release.
+During Windows installation, enable/add Python to PATH if your IT policy allows it.
+
+Verify installation from Command Prompt / Terminal:
+
+    python --version
+
+If your environment uses the Windows Python launcher, this can also be used:
+
+    py --version
+
+2) INSTALL PROJECT DEPENDENCIES
+-------------------------------
+Open Command Prompt / Terminal in this project folder and run:
+
+    python -m pip install -r requirements.txt
+
+Current Python dependency:
+
+    openpyxl>=3.1.5
+
+The requirements.txt file is included with the project so dependencies can be installed in one command.
+
+3) RUN THE DASHBOARD
+--------------------
+From this project folder run:
+
+    python dashboard.py
+
+If Windows uses the Python launcher instead:
+
+    py dashboard.py
+
+4) PROJECT INPUT / OUTPUT
+-------------------------
+- Keep the required master/reference Excel workbooks in the Input folder.
+- Put new SAP daily sales files in Daily_Input.
+- Successful daily files are moved to Daily_Input/Processed.
+- Backups are stored in Backup.
+- The generated dashboard is saved as Output/Result.xlsx.
+
+IMPORTANT FOR CORPORATE DEPLOYMENT
+----------------------------------
+- No .BAT launcher is included in this package.
+- If employee laptops are restricted from running Python/scripts, install and run Python only on an approved internal server/VM.
+- Do not silently install Python on employee laptops unless explicitly approved and deployed by the company's IT/software-management policy.
+- IT may create its own approved service, scheduler, web interface, or deployment method around dashboard.py.
+

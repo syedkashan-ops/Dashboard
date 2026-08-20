@@ -1,0 +1,77 @@
+SALES DASHBOARD - INTERNAL WEB DEPLOYMENT
+=========================================
+
+PURPOSE
+-------
+Users should NOT need Python on their laptops.
+Python and all dependencies run only on the company server.
+Users open an internal URL in Chrome/Edge, upload Excel files, and download Result.xlsx.
+
+SERVER REQUIREMENTS
+-------------------
+1. A company-approved Windows or Linux server/VM.
+2. Python 3.11+ installed on the SERVER only.
+   Official download: https://www.python.org/downloads/
+3. Network access from employee browsers to the server.
+4. An internal DNS/URL and HTTPS/reverse proxy according to company policy.
+
+INSTALL
+-------
+Open a terminal in this project folder on the server and run:
+
+Windows:
+  py -m venv .venv
+  .venv\Scripts\python -m pip install --upgrade pip
+  .venv\Scripts\python -m pip install -r requirements.txt
+
+Linux:
+  python3 -m venv .venv
+  .venv/bin/python -m pip install --upgrade pip
+  .venv/bin/python -m pip install -r requirements.txt
+
+START THE WEB APP
+-----------------
+Windows:
+  .venv\Scripts\python run_web_server.py
+
+Linux:
+  .venv/bin/python run_web_server.py
+
+The application listens on port 8080 by default.
+For a first internal test, browse to:
+  http://SERVER-NAME:8080/
+
+For production, IT should expose this behind the company's approved internal HTTPS URL,
+for example:
+  https://sales-dashboard.company.local/
+
+USER EXPERIENCE
+---------------
+1. User opens the internal URL.
+2. User uploads one or more daily SAP Excel files.
+3. User may optionally upload their own replacement Input/reference workbooks.
+4. User clicks "Generate & Download Result.xlsx".
+5. Python runs on the server in a private temporary workspace.
+6. Result.xlsx downloads to that user's browser.
+7. Temporary job files are deleted after processing.
+
+MULTI-USER BEHAVIOR
+-------------------
+Each request gets a separate temporary workspace. One user's uploaded files and generated
+Result.xlsx do not overwrite another user's files.
+
+SECURITY / IT NOTES
+-------------------
+- This package does not install anything on employee laptops.
+- Configure authentication/SSO, HTTPS, firewall rules, logging, file-size limits, malware
+  scanning, backups, and server service management according to company policy.
+- Do not expose port 8080 directly to the public internet.
+- The built-in reference files in Input/ are copied into each job. Optional uploaded
+  reference files can replace them for that job only.
+- Accepted upload formats are .xlsx and .xlsm.
+
+HEALTH CHECK
+------------
+  GET /health
+returns:
+  {"status":"ok"}
