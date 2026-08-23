@@ -14,7 +14,8 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.formatting.rule import CellIsRule, FormulaRule
 from openpyxl.chart import LineChart, BarChart, Reference
 from openpyxl.chart.label import DataLabelList
-from datetime import date
+# Import
+from datetime import date, timedelta
 import calendar
 
 from config import OUTPUT_DIR, OUTPUT_FILE, INPUT_DIR, PRODUCTS, AREAS
@@ -440,7 +441,7 @@ class ExcelWriter:
         fiscal_start_year = min_date.year if min_date.month >= 7 else min_date.year - 1
         fiscal_end = date(fiscal_start_year + 1, 6, 30)
         ws["A2"] = "Select As-of Date"; ws["A2"].font = self.bold
-        dashboard_today = date.today()
+        dashboard_today = date.today() - timedelta(days=1)
         ws["B2"] = dashboard_today
         date_dv = DataValidation(type="date", operator="between", formula1=f"DATE({min_date.year},{min_date.month},{min_date.day})", formula2=f"DATE({dashboard_today.year},{dashboard_today.month},{dashboard_today.day})", allow_blank=False)
         ws.add_data_validation(date_dv); date_dv.add(ws["B2"])
