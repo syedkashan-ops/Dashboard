@@ -1577,23 +1577,58 @@ class SalesProcessor:
         last_full_end: date,
         area: str | None = None,
     ) -> tuple[float, float, int, float, float]:
-        """Compare actual current sales with a prorated full last-year period.
-
-        Formula required by management:
-          LY adjusted = full LY period sales / LY non-Sunday working days
-                        * current elapsed non-Sunday working days.
-
-        The denominator and multiplier deliberately use the same working-day
-        basis, so Sundays cannot understate the prior-year benchmark.
         """
-        working_days = self._non_sunday_day_count(current_start, current_end)
-        current_sales = self._period_sales("this", product, current_start, current_end, area)
-        last_full_sales = self._period_sales("last", product, last_full_start, last_full_end, area)
-        last_working_days = self._non_sunday_day_count(last_full_start, last_full_end)
-        last_daily_rate = last_full_sales / last_working_days if last_working_days else 0.0
-        last_adjusted = last_daily_rate * working_days
-        current_avg = current_sales / working_days if working_days else 0.0
-        return current_sales, last_adjusted, working_days, current_avg, last_daily_rate
+        Compare current sales with prorated full last-year sales.
+
+        Last Year MTD formula:
+            Last Year Full Month Sale
+            / Total Calendar Days in Last Year Month
+            * Calendar Days Elapsed in Current Month
+
+        Calendar days are used intentionally. Sundays are included.
+        """
+
+        elapsed_days = (current_end - current_start).days + 1
+
+        current_sales = self._period_sales(
+            "this",
+            product,
+            current_start,
+            current_end,
+            area,
+        )
+
+        last_full_sales = self._period_sales(
+            "last",
+            product,
+            last_full_start,
+            last_full_end,
+            area,
+        )
+
+        last_period_days = (last_full_end - last_full_start).days + 1
+
+        last_daily_rate = (
+            last_full_sales / last_period_days
+            if last_period_days > 0
+            else 0.0
+        )
+
+        last_adjusted = last_daily_rate * elapsed_days
+
+        current_avg = (
+            current_sales / elapsed_days
+            if elapsed_days > 0
+            else 0.0
+        )
+
+        return (
+            current_sales,
+            last_adjusted,
+            elapsed_days,
+            current_avg,
+            last_daily_rate,
+        )
 
     def _objective_for_month(self, product: str, month: str, area: str | None = None) -> float:
         return sum(value for (p, a, m), value in self.objectives.items()
