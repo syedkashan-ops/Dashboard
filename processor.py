@@ -1928,34 +1928,47 @@ class SalesProcessor:
                     "MTD Last Weekday Adj": m_ly_avg,
                     "MTD Days": m_days,
 
-                    full_month_objective = self._objective_for_month(
-    product,
-    asof.strftime("%B"),
-    area,
-)
+                                       full_month_objective = self._objective_for_month(
+                    product,
+                    asof.strftime("%B"),
+                    area,
+                )
 
-days_in_month = calendar.monthrange(
-    asof.year,
-    asof.month,
-)[1]
+                days_in_month = calendar.monthrange(
+                    asof.year,
+                    asof.month,
+                )[1]
 
-mtd_objective = (
-    full_month_objective
-    / days_in_month
-    * m_days
-    if days_in_month > 0
-    else 0.0
-)
+                mtd_objective = (
+                    full_month_objective
+                    / days_in_month
+                    * m_days
+                    if days_in_month > 0
+                    else 0.0
+                )
 
-records.append({
-    "As Of Date": asof,
-    "Product": product,
+                records.append({
+                    "As Of Date": asof,
+                    "Product": product,
 
-    # other existing fields...
+                    "FY Current": fy_ty,
+                    "FY Last Calendar": fy_ly,
+                    "FY Last Weekday Adj": fy_ly_avg,
+                    "FY Days": fy_days,
 
-    "MTD Objective": mtd_objective,
-})
-                
+                    "FY Objective": self._objective_through_month(
+                        product,
+                        asof.strftime("%B"),
+                        area,
+                    ),
+
+                    "MTD Current": m_ty,
+                    "MTD Last Calendar": m_ly,
+                    "MTD Last Weekday Adj": m_ly_avg,
+                    "MTD Days": m_days,
+
+                    "MTD Objective": mtd_objective,
+                })             
             asof += timedelta(days=1)
 
         return records
