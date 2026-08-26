@@ -1630,6 +1630,117 @@ class SalesProcessor:
             last_daily_rate,
         )
 
+        def _last_year_ytd_comparison(
+        self,
+        product: str,
+        fiscal_start: date,
+        asof: date,
+        area: str | None = None,
+    ) -> float:
+        """
+        Calculate Last Year YTD as:
+
+        1. Actual full sales of all completed months in the
+           current fiscal year, using the corresponding months
+           from the previous year.
+
+        PLUS
+
+        2. The current month of last year on MTD basis.
+
+        Example:
+        As of 25-Aug-2026
+
+            July-2025 full actual sales
+            +
+            August-2025 full month sales / 31 * 25
+
+        As of 25-Sep-2026
+
+            July-2025 full actual sales
+            +
+            August-2025 full actual sales
+            +
+            September-2025 full month sales / 30 * 25
+        """
+
+        # Start of the current month.
+        current_month_start = asof.replace(day=1)
+
+        # Corresponding start date in the previous year.
+        last_year_fiscal_start = self._shift_year(fiscal_start)
+
+        # -------------------------------------------------
+        # PART 1:
+        # Full actual sales for all completed months.
+        # -------------------------------------------------
+
+        if current_month_start > fiscal_start:
+
+            completed_end = current_month_start - timedelta(days=1)
+
+            ly_completed_start = last_year_fiscal_start
+
+            ly_completed_end = self._shift_year(
+                completed_end
+            )
+
+            completed_month_sales = self._period_sales(
+                "last",
+                product,
+                ly_completed_start,
+                ly_completed_end,
+                area,
+            )
+
+        else:
+
+            completed_month_sales = 0.0
+
+        # -------------------------------------------------
+        # PART 2:
+        # Corresponding current month of last year on
+        # MTD / calendar-day basis.
+        # -------------------------------------------------
+
+        elapsed_days = (
+            asof - current_month_start
+        ).days + 1
+
+        ly_month_start = self._shift_year(
+            current_month_start
+        )
+
+        ly_month_end = date(
+            ly_month_start.year,
+            ly_month_start.month,
+            calendar.monthrange(
+                ly_month_start.year,
+                ly_month_start.month
+            )[1],
+        )
+
+        ly_month_full_sales = self._period_sales(
+            "last",
+            product,
+            ly_month_start,
+            ly_month_end,
+            area,
+        )
+
+        ly_month_days = (
+            ly_month_end - ly_month_start
+        ).days + 1
+
+        ly_month_mtd = (
+            ly_month_full_sales
+            / ly_month_days
+            * elapsed_days
+            if ly_month_days > 0
+            else 0.0
+        )
+
+        return completed_month_sales + ly_month_mtd
     def _objective_for_month(self, product: str, month: str, area: str | None = None) -> float:
         return sum(value for (p, a, m), value in self.objectives.items()
                    if p == product and m == month and (area is None or a == area))
@@ -1663,9 +1774,36 @@ class SalesProcessor:
                 calendar.monthrange(ly_month_year, asof.month)[1]
             )
             for product in PRODUCTS:
-                fy_ty, fy_ly, fy_days, fy_ty_avg, fy_ly_avg = self._prorated_last_year_comparison(
-                    product, fiscal_start, asof, last_fiscal_start, last_fiscal_end, area
-                )
+                fy_ty = self._period_sales(
+    "this",
+    product,
+    fiscal_start,
+    asof,
+    area,
+)
+
+fy_ly = self._last_year_ytd_comparison(
+    product,
+    fiscal_start,
+    asof,
+    area,
+)
+
+fy_days = (
+    asof - fiscal_start
+).days + 1
+
+fy_ty_avg = (
+    fy_ty / fy_days
+    if fy_days > 0
+    else 0.0
+)
+
+fy_ly_avg = (
+    fy_ly / fy_days
+    if fy_days > 0
+    else 0.0
+)
                 m_ty, m_ly, m_days, m_ty_avg, m_ly_avg = self._prorated_last_year_comparison(
                     product, month_start, asof, ly_month_start, ly_month_end, area
                 )
