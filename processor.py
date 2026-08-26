@@ -1956,7 +1956,7 @@ records.append({
     "MTD Objective": mtd_objective,
 })
                 
-
+}) 
             asof += timedelta(days=1)
 
         return records
