@@ -1581,6 +1581,7 @@ class SalesProcessor:
         Compare current sales with prorated full last-year sales.
 
         Last Year MTD formula:
+
             Last Year Full Month Sale
             / Total Calendar Days in Last Year Month
             * Calendar Days Elapsed in Current Month
@@ -1606,7 +1607,9 @@ class SalesProcessor:
             area,
         )
 
-        last_period_days = (last_full_end - last_full_start).days + 1
+        last_period_days = (
+            last_full_end - last_full_start
+        ).days + 1
 
         last_daily_rate = (
             last_full_sales / last_period_days
@@ -1630,7 +1633,8 @@ class SalesProcessor:
             last_daily_rate,
         )
 
-       def _last_year_ytd_comparison(
+
+    def _last_year_ytd_comparison(
         self,
         product: str,
         fiscal_start: date,
@@ -1640,36 +1644,51 @@ class SalesProcessor:
         """
         Calculate Last Year YTD as:
 
-        Full actual sales of completed months of the current
-        fiscal year using corresponding months from last year
+        1. Actual full sales of all completed months of the
+           current fiscal year using corresponding months
+           from last year.
 
         PLUS
 
-        Last year's corresponding current month on MTD basis.
+        2. Corresponding current month of last year on
+           calendar-day MTD basis.
 
-        Example: 25-Aug-2026
+        Example: As of 25-Aug-2026
 
-            July-2025 full actual sales
+            July-2025 full sales
             +
-            August-2025 full sales / 31 * 25
+            August-2025 full sale / 31 * 25
+
+        Example: As of 25-Sep-2026
+
+            July-2025 full sales
+            +
+            August-2025 full sales
+            +
+            September-2025 full sale / 30 * 25
         """
 
-        # Start of the current month.
         current_month_start = asof.replace(day=1)
 
-        # Corresponding fiscal-year start in last year.
-        last_year_fiscal_start = self._shift_year(fiscal_start)
-
-        # -------------------------------------------------
-        # PART 1: Full sales of all completed months
-        # -------------------------------------------------
+        # ---------------------------------------------
+        # PART 1:
+        # Full sales of completed months from last year
+        # ---------------------------------------------
 
         if current_month_start > fiscal_start:
 
-            completed_end = current_month_start - timedelta(days=1)
+            completed_end = (
+                current_month_start
+                - timedelta(days=1)
+            )
 
-            ly_completed_start = last_year_fiscal_start
-            ly_completed_end = self._shift_year(completed_end)
+            ly_completed_start = self._shift_year(
+                fiscal_start
+            )
+
+            ly_completed_end = self._shift_year(
+                completed_end
+            )
 
             completed_month_sales = self._period_sales(
                 "last",
@@ -1683,9 +1702,10 @@ class SalesProcessor:
 
             completed_month_sales = 0.0
 
-        # -------------------------------------------------
-        # PART 2: Current month of last year on MTD basis
-        # -------------------------------------------------
+        # ---------------------------------------------
+        # PART 2:
+        # Current month of last year on MTD basis
+        # ---------------------------------------------
 
         elapsed_days = (
             asof - current_month_start
@@ -1724,44 +1744,111 @@ class SalesProcessor:
             else 0.0
         )
 
-        return completed_month_sales + ly_month_mtd     
+        return (
+            completed_month_sales
+            + ly_month_mtd
+        )
 
-            
-    def _objective_for_month(self, product: str, month: str, area: str | None = None) -> float:
-        return sum(value for (p, a, m), value in self.objectives.items()
-                   if p == product and m == month and (area is None or a == area))
 
-    def _objective_through_month(self, product: str, month: str, area: str | None = None) -> float:
-        pos = FISCAL_MONTHS.index(month) if month in FISCAL_MONTHS else len(FISCAL_MONTHS)-1
-        allowed = set(FISCAL_MONTHS[:pos+1])
-        return sum(value for (p, a, m), value in self.objectives.items()
-                   if p == product and m in allowed and (area is None or a == area))
+    def _objective_for_month(
+        self,
+        product: str,
+        month: str,
+        area: str | None = None,
+    ) -> float:
 
-    def comparison_records(self, area: str | None = None) -> list[dict[str, Any]]:
+        return sum(
+            value
+            for (p, a, m), value
+            in self.objectives.items()
+            if p == product
+            and m == month
+            and (area is None or a == area)
+        )
+
+
+    def _objective_through_month(
+        self,
+        product: str,
+        month: str,
+        area: str | None = None,
+    ) -> float:
+
+        pos = (
+            FISCAL_MONTHS.index(month)
+            if month in FISCAL_MONTHS
+            else len(FISCAL_MONTHS) - 1
+        )
+
+        allowed = set(
+            FISCAL_MONTHS[:pos + 1]
+        )
+
+        return sum(
+            value
+            for (p, a, m), value
+            in self.objectives.items()
+            if p == product
+            and m in allowed
+            and (area is None or a == area)
+        )
+
+
+    def comparison_records(
+        self,
+        area: str | None = None,
+    ) -> list[dict[str, Any]]:
+
         """Precompute dashboard values for every possible automatic as-of date."""
-        import calendar
+
         assert self.start_date and self.end_date
+
         start = self.start_date.date()
-        fiscal_start = date(start.year if start.month >= 7 else start.year - 1, 7, 1)
-        # Build dashboard lookup rows through the fiscal-year end so TODAY() can
-        # advance automatically even when the latest sales file is one or more
-        # days behind. Dates without uploaded sales correctly show zero new sales.
-        end = date(fiscal_start.year + 1, 6, 30)
-        last_fiscal_start = date(fiscal_start.year - 1, 7, 1)
-        last_fiscal_end = date(fiscal_start.year, 6, 30)
+
+        fiscal_start = date(
+            start.year if start.month >= 7 else start.year - 1,
+            7,
+            1,
+        )
+
+        # Build records for the complete fiscal year.
+        end = date(
+            fiscal_start.year + 1,
+            6,
+            30,
+        )
+
         records: list[dict[str, Any]] = []
+
         asof = fiscal_start
+
         while asof <= end:
+
             month_start = asof.replace(day=1)
+
             ly_month_year = asof.year - 1
-            ly_month_start = date(ly_month_year, asof.month, 1)
-            ly_month_end = date(
-                ly_month_year, asof.month,
-                calendar.monthrange(ly_month_year, asof.month)[1]
+
+            ly_month_start = date(
+                ly_month_year,
+                asof.month,
+                1,
             )
+
+            ly_month_end = date(
+                ly_month_year,
+                asof.month,
+                calendar.monthrange(
+                    ly_month_year,
+                    asof.month,
+                )[1],
+            )
+
             for product in PRODUCTS:
-    
+
+                # -----------------------------------------
                 # Current Year YTD actual sales
+                # -----------------------------------------
+
                 fy_ty = self._period_sales(
                     "this",
                     product,
@@ -1770,8 +1857,14 @@ class SalesProcessor:
                     area,
                 )
 
-                # Last Year YTD:
-                # Completed full months + corresponding current month MTD
+                # -----------------------------------------
+                # Last Year YTD
+                #
+                # Completed full months
+                # +
+                # Current month on MTD basis
+                # -----------------------------------------
+
                 fy_ly = self._last_year_ytd_comparison(
                     product,
                     fiscal_start,
@@ -1779,7 +1872,6 @@ class SalesProcessor:
                     area,
                 )
 
-                # Number of elapsed calendar days in current FY
                 fy_days = (
                     asof - fiscal_start
                 ).days + 1
@@ -1794,26 +1886,65 @@ class SalesProcessor:
                     fy_ly / fy_days
                     if fy_days > 0
                     else 0.0
-                ) 
-                m_ty, m_ly, m_days, m_ty_avg, m_ly_avg = self._prorated_last_year_comparison(
-                    product, month_start, asof, ly_month_start, ly_month_end, area
                 )
+
+                # -----------------------------------------
+                # MTD calculation
+                # -----------------------------------------
+
+                (
+                    m_ty,
+                    m_ly,
+                    m_days,
+                    m_ty_avg,
+                    m_ly_avg,
+                ) = self._prorated_last_year_comparison(
+                    product,
+                    month_start,
+                    asof,
+                    ly_month_start,
+                    ly_month_end,
+                    area,
+                )
+
                 records.append({
                     "As Of Date": asof,
                     "Product": product,
+
                     "FY Current": fy_ty,
                     "FY Last Calendar": fy_ly,
                     "FY Last Weekday Adj": fy_ly_avg,
                     "FY Days": fy_days,
-                    "FY Objective": self._objective_through_month(product, asof.strftime("%B"), area),
+
+                    "FY Objective":
+                        self._objective_through_month(
+                            product,
+                            asof.strftime("%B"),
+                            area,
+                        ),
+
                     "MTD Current": m_ty,
                     "MTD Last Calendar": m_ly,
                     "MTD Last Weekday Adj": m_ly_avg,
                     "MTD Days": m_days,
-                    "MTD Objective": self._objective_for_month(product, asof.strftime("%B"), area),
+
+                    "MTD Objective":
+                        self._objective_for_month(
+                            product,
+                            asof.strftime("%B"),
+                            area,
+                        ),
                 })
+
             asof += timedelta(days=1)
+
         return records
+
+        
+        
+
+        
+        
 
     def selected_quarter_records(self, area: str | None = None) -> list[dict[str, Any]]:
         """Precompute fiscal-quarter performance for each available as-of date."""
