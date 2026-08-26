@@ -1,3 +1,5 @@
+streamlit
 openpyxl>=3.1.5
 Flask>=3.1,<4
 waitress>=3.0,<4
+requests
