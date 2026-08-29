@@ -1907,28 +1907,11 @@ class SalesProcessor:
                     area,
                 )
 
-                records.append({
-                    "As Of Date": asof,
-                    "Product": product,
+                            # -----------------------------------------
+                # MTD Objective - prorated basis
+                # -----------------------------------------
 
-                    "FY Current": fy_ty,
-                    "FY Last Calendar": fy_ly,
-                    "FY Last Weekday Adj": fy_ly_avg,
-                    "FY Days": fy_days,
-
-                    "FY Objective":
-                        self._objective_through_month(
-                            product,
-                            asof.strftime("%B"),
-                            area,
-                        ),
-
-                    "MTD Current": m_ty,
-                    "MTD Last Calendar": m_ly,
-                    "MTD Last Weekday Adj": m_ly_avg,
-                    "MTD Days": m_days,
-
-                    full_month_objective = self._objective_for_month(
+                full_month_objective = self._objective_for_month(
                     product,
                     asof.strftime("%B"),
                     area,
@@ -1956,11 +1939,12 @@ class SalesProcessor:
                     "FY Last Weekday Adj": fy_ly_avg,
                     "FY Days": fy_days,
 
-                    "FY Objective": self._objective_through_month(
-                        product,
-                        asof.strftime("%B"),
-                        area,
-                    ),
+                    "FY Objective":
+                        self._objective_through_month(
+                            product,
+                            asof.strftime("%B"),
+                            area,
+                        ),
 
                     "MTD Current": m_ty,
                     "MTD Last Calendar": m_ly,
@@ -1969,6 +1953,11 @@ class SalesProcessor:
 
                     "MTD Objective": mtd_objective,
                 })
+                
+
+                
+
+                    
                 
                                                                   
             asof += timedelta(days=1)
