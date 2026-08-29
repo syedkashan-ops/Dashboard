@@ -1929,31 +1929,68 @@ class SalesProcessor:
                     if days_in_month > 0
                     else 0.0
                 )
+ # -----------------------------------------
+# Full current-month objective
+# -----------------------------------------
 
-                records.append({
-                    "As Of Date": asof,
-                    "Product": product,
+full_month_objective = self._objective_for_month(
+    product,
+    asof.strftime("%B"),
+    area,
+)
 
-                    "FY Current": fy_ty,
-                    "FY Last Calendar": fy_ly,
-                    "FY Last Weekday Adj": fy_ly_avg,
-                    "FY Days": fy_days,
+# -----------------------------------------
+# MTD Objective - prorated basis
+# -----------------------------------------
 
-                    "FY Objective":
-                        self._objective_through_month(
-                            product,
-                            asof.strftime("%B"),
-                            area,
-                        ),
+days_in_month = calendar.monthrange(
+    asof.year,
+    asof.month,
+)[1]
 
-                    "MTD Current": m_ty,
-                    "MTD Last Calendar": m_ly,
-                    "MTD Last Weekday Adj": m_ly_avg,
-                    "MTD Days": m_days,
+mtd_objective = (
+    full_month_objective
+    / days_in_month
+    * m_days
+    if days_in_month > 0
+    else 0.0
+)
 
-                    "MTD Objective": mtd_objective,
-                })
-                
+# -----------------------------------------
+# FY / YTD Objective
+#
+# Completed months = full objectives
+# Current month = MTD prorated objective
+# -----------------------------------------
+
+completed_months_objective = (
+    self._objective_through_month(
+        product,
+        asof.strftime("%B"),
+        area,
+    )
+    - full_month_objective
+)
+
+fy_objective = (
+    completed_months_objective
+    + mtd_objective
+)
+
+records.append({
+    "As Of Date": asof,
+    "Product": product,
+    "FY Current": fy_ty,
+    "FY Last Calendar": fy_ly,
+    "FY Last Weekday Adj": fy_ly_avg,
+    "FY Days": fy_days,
+    "FY Objective": fy_objective,
+    "MTD Current": m_ty,
+    "MTD Last Calendar": m_ly,
+    "MTD Last Weekday Adj": m_ly_avg,
+    "MTD Days": m_days,
+    "MTD Objective": mtd_objective,
+})
 
                 
 
