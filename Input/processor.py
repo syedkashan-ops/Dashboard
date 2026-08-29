@@ -1634,20 +1634,68 @@ class SalesProcessor:
                 m_ty, m_ly, m_days, m_ty_avg, m_ly_avg = self._prorated_last_year_comparison(
                     product, month_start, asof, ly_month_start, ly_month_end, area
                 )
-                records.append({
-                    "As Of Date": asof,
-                    "Product": product,
-                    "FY Current": fy_ty,
-                    "FY Last Calendar": fy_ly,
-                    "FY Last Weekday Adj": fy_ly_avg,
-                    "FY Days": fy_days,
-                    "FY Objective": self._objective_through_month(product, asof.strftime("%B"), area),
-                    "MTD Current": m_ty,
-                    "MTD Last Calendar": m_ly,
-                    "MTD Last Weekday Adj": m_ly_avg,
-                    "MTD Days": m_days,
-                    "MTD Objective": self._objective_for_month(product, asof.strftime("%B"), area),
-                })
+                # -----------------------------------------
+# Full current-month objective
+# -----------------------------------------
+
+full_month_objective = self._objective_for_month(
+    product,
+    asof.strftime("%B"),
+    area,
+)
+
+# -----------------------------------------
+# MTD Objective - prorated basis
+# -----------------------------------------
+
+days_in_month = calendar.monthrange(
+    asof.year,
+    asof.month,
+)[1]
+
+mtd_objective = (
+    full_month_objective
+    / days_in_month
+    * m_days
+    if days_in_month > 0
+    else 0.0
+)
+
+# -----------------------------------------
+# FY / YTD Objective
+#
+# Completed months = full objectives
+# Current month = MTD prorated objective
+# -----------------------------------------
+
+completed_months_objective = (
+    self._objective_through_month(
+        product,
+        asof.strftime("%B"),
+        area,
+    )
+    - full_month_objective
+)
+
+fy_objective = (
+    completed_months_objective
+    + mtd_objective
+)
+
+records.append({
+    "As Of Date": asof,
+    "Product": product,
+    "FY Current": fy_ty,
+    "FY Last Calendar": fy_ly,
+    "FY Last Weekday Adj": fy_ly_avg,
+    "FY Days": fy_days,
+    "FY Objective": fy_objective,
+    "MTD Current": m_ty,
+    "MTD Last Calendar": m_ly,
+    "MTD Last Weekday Adj": m_ly_avg,
+    "MTD Days": m_days,
+    "MTD Objective": mtd_objective,
+})
             asof += timedelta(days=1)
         return records
 
