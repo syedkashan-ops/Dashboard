@@ -1792,7 +1792,7 @@ class SalesProcessor:
             and m in allowed
             and (area is None or a == area)
         )
-         def comparison_records(
+        def comparison_records(
         self,
         area: str | None = None,
     ) -> list[dict[str, Any]]:
