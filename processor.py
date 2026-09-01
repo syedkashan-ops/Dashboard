@@ -1792,8 +1792,7 @@ class SalesProcessor:
             and m in allowed
             and (area is None or a == area)
         )
-
-            def comparison_records(
+         def comparison_records(
         self,
         area: str | None = None,
     ) -> list[dict[str, Any]]:
@@ -1843,7 +1842,7 @@ class SalesProcessor:
             for product in PRODUCTS:
 
                 # -----------------------------------------
-                # This Year YTD Sales
+                # Current Year YTD Sales
                 # -----------------------------------------
 
                 fy_ty = self._period_sales(
@@ -1856,7 +1855,9 @@ class SalesProcessor:
 
                 # -----------------------------------------
                 # Last Year YTD Sales
-                # Completed months full + current month MTD
+                #
+                # Completed months = full sales
+                # Current month = MTD basis
                 # -----------------------------------------
 
                 fy_ly = self._last_year_ytd_comparison(
@@ -1905,16 +1906,17 @@ class SalesProcessor:
                 # Full Current Month Objective
                 # -----------------------------------------
 
-                full_month_objective = (
-                    self._objective_for_month(
-                        product,
-                        asof.strftime("%B"),
-                        area,
-                    )
+                full_month_objective = self._objective_for_month(
+                    product,
+                    asof.strftime("%B"),
+                    area,
                 )
 
                 # -----------------------------------------
                 # MTD Objective
+                #
+                # Full month objective / calendar days
+                # × elapsed days
                 # -----------------------------------------
 
                 days_in_month = calendar.monthrange(
@@ -1933,11 +1935,8 @@ class SalesProcessor:
                 # -----------------------------------------
                 # YTD Objective
                 #
-                # Completed months:
-                #       Full objective
-                #
-                # Current month:
-                #       MTD prorated objective
+                # Completed months = full objective
+                # Current month = MTD objective
                 # -----------------------------------------
 
                 completed_months_objective = (
@@ -1966,20 +1965,18 @@ class SalesProcessor:
                     "FY Last Calendar": fy_ly,
                     "FY Last Weekday Adj": fy_ly_avg,
                     "FY Days": fy_days,
-
                     "FY Objective": fy_objective,
 
                     "MTD Current": m_ty,
                     "MTD Last Calendar": m_ly,
                     "MTD Last Weekday Adj": m_ly_avg,
                     "MTD Days": m_days,
-
                     "MTD Objective": mtd_objective,
                 })
 
             asof += timedelta(days=1)
 
-        return records
+        return records      
         
     def selected_quarter_records(self, area: str | None = None) -> list[dict[str, Any]]:
         """Precompute fiscal-quarter performance for each available as-of date."""
