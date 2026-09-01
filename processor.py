@@ -1793,11 +1793,10 @@ class SalesProcessor:
             and (area is None or a == area)
         )
 
-        def comparison_records(
+            def comparison_records(
         self,
         area: str | None = None,
     ) -> list[dict[str, Any]]:
-
         """Precompute dashboard values for every possible automatic as-of date."""
 
         assert self.start_date and self.end_date
@@ -1810,7 +1809,6 @@ class SalesProcessor:
             1,
         )
 
-        # Build records for the complete fiscal year.
         end = date(
             fiscal_start.year + 1,
             6,
@@ -1845,7 +1843,7 @@ class SalesProcessor:
             for product in PRODUCTS:
 
                 # -----------------------------------------
-                # Current Year YTD actual sales
+                # This Year YTD Sales
                 # -----------------------------------------
 
                 fy_ty = self._period_sales(
@@ -1857,11 +1855,8 @@ class SalesProcessor:
                 )
 
                 # -----------------------------------------
-                # Last Year YTD
-                #
-                # Completed full months
-                # +
-                # Current month on MTD basis
+                # Last Year YTD Sales
+                # Completed months full + current month MTD
                 # -----------------------------------------
 
                 fy_ly = self._last_year_ytd_comparison(
@@ -1907,7 +1902,7 @@ class SalesProcessor:
                 )
 
                 # -----------------------------------------
-                # Current Month Full Objective
+                # Full Current Month Objective
                 # -----------------------------------------
 
                 full_month_objective = (
@@ -1920,10 +1915,6 @@ class SalesProcessor:
 
                 # -----------------------------------------
                 # MTD Objective
-                #
-                # Full month objective
-                # / calendar days in month
-                # * elapsed calendar days
                 # -----------------------------------------
 
                 days_in_month = calendar.monthrange(
@@ -1940,10 +1931,13 @@ class SalesProcessor:
                 )
 
                 # -----------------------------------------
-                # FY / YTD Objective
+                # YTD Objective
                 #
-                # Completed months = FULL objective
-                # Current month = MTD prorated objective
+                # Completed months:
+                #       Full objective
+                #
+                # Current month:
+                #       MTD prorated objective
                 # -----------------------------------------
 
                 completed_months_objective = (
@@ -1961,7 +1955,7 @@ class SalesProcessor:
                 )
 
                 # -----------------------------------------
-                # Final dashboard record
+                # Dashboard Record
                 # -----------------------------------------
 
                 records.append({
@@ -1983,17 +1977,10 @@ class SalesProcessor:
                     "MTD Objective": mtd_objective,
                 })
 
-            # Move to the next as-of date.
             asof += timedelta(days=1)
 
-        return records                    
-
+        return records
         
-        
-
-        
-        
-
     def selected_quarter_records(self, area: str | None = None) -> list[dict[str, Any]]:
         """Precompute fiscal-quarter performance for each available as-of date."""
         import calendar
